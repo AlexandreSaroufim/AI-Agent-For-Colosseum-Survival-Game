@@ -1,4 +1,4 @@
-# Colosseum Survival!
+# Simo and Alex, Colosseum Survival!
 
 **Project Description & Template** : https://www.overleaf.com/read/vnygbjryrxrt
 
