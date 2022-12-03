@@ -1,7 +1,7 @@
 # Student agent: Add your own agent here
+from agents import random_agent
 from agents.agent import Agent
 from store import register_agent
-import random_agent
 import sys
 import math
 
@@ -100,7 +100,7 @@ class Monte_Carlo:
 
     # find node with specific state
     def find_node(self, state):
-        cur_node = self.tre
+        cur_node = self.tree
         while len(cur_node.children) != 0:
             for node in cur_node.children:
                 if node.state == state:
@@ -126,6 +126,7 @@ class StudentAgent(Agent):
     def __init__(self):
         super(StudentAgent, self).__init__()
         self.name = "StudentAgent"
+        self.autoplay = True
         self.dir_map = {
             "u": 0,
             "r": 1,
