@@ -1,6 +1,7 @@
 # Student agent: Add your own agent here
 from agents.agent import Agent
 from store import register_agent
+import random_agent
 import sys
 import math
 
@@ -30,8 +31,10 @@ class Node:
 class Monte_Carlo:
 
     # limit of 30 seconds to choose first move
-    def __init__(self, state):
+    def __init__(self, state, length, max_moves):
         self.tree = Node(state, None)
+        self.length = length
+        self.max_moves = max_moves
 
         # limit to 28 seconds
         for i in range(1000):
@@ -45,24 +48,21 @@ class Monte_Carlo:
 
     # Traverse Tree using children with highest UCB
     def select(self):
+        cur_node = self.tree
+        max_child_ucb = None
 
-        curNode = self.tree
-        maxRelativeUCB = None
+        while len(cur_node.children) != 0:
+            for node in cur_node.children:
+                if max_child_ucb is None or node.ucb > max_child_ucb.ucb:
+                    max_child_ucb = node
+            cur_node = max_child_ucb
+            max_child_ucb = None
 
-        while len(curNode.children) != 0:
-            for node in curNode.children:
-                if maxRelativeUCB is None or node.ucb > maxUCBNode.ucb:
-                    maxUCBNode = node.ucb
-
-            curNode = maxRelativeUCB
-            maxRelativeUCB = None
-
-        return curNode
+        return cur_node
 
     # Grow search tree by generating a new child of the selected leaf node
     # we can also generate several children
     def expand(self, leaf):
-
         # child based on leaf
         child = self.generate_child(leaf)
         leaf.add_child(child)
@@ -71,7 +71,9 @@ class Monte_Carlo:
     # simulate a game using child as state
     # use random_agent using child.state
     def simulate(self, child):
-        pass
+        is_end, p0_score, p1_score = child.state.world.step()
+        while not is_end:
+            is_end, p0_score, p1_score = child.state.world.step()
 
     # Use result of the simulation to update all the search tree nodes going up to the root
     def back_propagate(self, result, child):
@@ -85,7 +87,6 @@ class Monte_Carlo:
     # returns the child that has the highest number of playouts for current state
     # current state for 1 second
     def actions(self, state):
-
         root = self.tree
         self.tree = self.find_node(root)
 
@@ -98,14 +99,21 @@ class Monte_Carlo:
         # return max ucb child of node with state
 
     # find node with specific state
-    @staticmethod
-    def find_node(state):
-        pass
+    def find_node(self, state):
+        cur_node = self.tre
+        while len(cur_node.children) != 0:
+            for node in cur_node.children:
+                if node.state == state:
+                    return node
+        return None
 
     # generate a child based on the leaf node that doesn't exist in the tree
-    @staticmethod
-    def generate_child(leaf):
+    def generate_child(self, leaf):
+        r_agent= random_agent.RandomAgent.__init__()
+        next_pos, dir = r_agent.step(leaf.state[0], leaf.state[1], leaf.state[2], self.max_moves)
         pass
+
+
 
 
 @register_agent("student_agent")
