@@ -45,6 +45,7 @@ class RandomAgent(Agent):
         # Put Barrier
         dir = np.random.randint(0, 4)
         r, c = my_pos
+
         while chess_board[r, c, dir]:
             dir = np.random.randint(0, 4)
 

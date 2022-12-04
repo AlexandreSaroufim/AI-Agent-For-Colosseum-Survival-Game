@@ -1,29 +1,34 @@
 # Student agent: Add your own agent here
-from agents import random_agent
+from agents.random_agent import RandomAgent
 from agents.agent import Agent
 from store import register_agent
 import sys
 import math
+from copy import deepcopy
+import numpy as np
+import random
 
 
 class Node:
     def __init__(self, state, parent):
-        self.state = state
+        self.state: list[list[list], tuple[int,int], tuple[int,int]] = state
         self.wins = 0
         self.playouts = 0
         self.ucb = 0
         self.parent = parent
-        self.children = []
+        self.children: list[Node] = []
 
     def add_child(self, obj):
         self.children.append(obj)
 
     # updates ucb then returns updated values
-    def update_ucb(self, root):
+    def update_ucb(self,root):
         # can alter C to possibly improve ucb
-        ucb1 = self.wins / self.playouts + math.sqrt(2) * math.sqrt(math.log(root.playouts, math.e))
 
-        self.ucb = ucb1
+        if self.playouts != 0 and root.playouts != 0:
+            ucb1 = self.wins / self.playouts + math.sqrt(2) * math.sqrt(math.log(root.playouts, math.e))
+            self.ucb = ucb1
+
 
         return self.ucb
 
@@ -32,28 +37,35 @@ class Monte_Carlo:
 
     # limit of 30 seconds to choose first move
     def __init__(self, state, length, max_moves):
-        self.tree = Node(state, None)
+        self.tree = Node(list(state), None)
         self.length = length
         self.max_moves = max_moves
 
         # limit to 28 seconds
-        for i in range(1000):
+        for i in range(10):
             self.monte_carlo()
+            print("init: "+ str(i))
 
     def monte_carlo(self):
+
+        print("select")
         leaf = self.select()
+        print("expand")
         child = self.expand(leaf)
+        print("simulate")
         result = self.simulate(child)
+        print("back-prop")
         self.back_propagate(result, child)
 
     # Traverse Tree using children with highest UCB
     def select(self):
         cur_node = self.tree
-        max_child_ucb = None
+        max_child_ucb: Node = None
 
+        print("\n num_children",len(cur_node.children))
         while len(cur_node.children) != 0:
             for node in cur_node.children:
-                if max_child_ucb is None or node.ucb > max_child_ucb.ucb:
+                if node.playouts == 0 or max_child_ucb is None or node.ucb > max_child_ucb.ucb:
                     max_child_ucb = node
             cur_node = max_child_ucb
             max_child_ucb = None
@@ -65,53 +77,117 @@ class Monte_Carlo:
     def expand(self, leaf):
         # child based on leaf
         child = self.generate_child(leaf)
+        child2 = self.generate_child(leaf)
+        child3 = self.generate_child(leaf)
+
         leaf.add_child(child)
+        leaf.add_child(child2)
+        leaf.add_child(child3)
+
         return child
 
     # simulate a game using child as state
     # use random_agent using child.state
     def simulate(self, child):
-        is_end, p0_score, p1_score = child.state.world.step()
-        while not is_end:
-            is_end, p0_score, p1_score = child.state.world.step()
+        random.choice([True,False])
 
     # Use result of the simulation to update all the search tree nodes going up to the root
-    def back_propagate(self, result, child):
+    def back_propagate(self, result, child: Node):
+        
+        child.playouts+=1
+
+        #if result is true then we won, if false we didn't win
+        if result:
+            child.wins+=1
+
+        child.update_ucb(self.tree)
+
         if child.parent is None:
             return
-        child.update_ucb()
-        self.back_propagate(self, result, child.parent)
+
+        self.back_propagate(result, child.parent)
 
 
-    # no more than 2 seconds to choose next move
-    # returns the child that has the highest number of playouts for current state
-    # current state for 1 second
-    def actions(self, state):
-        root = self.tree
-        self.tree = self.find_node(root)
+    def actions(self):
+        
+        curNode: Node = self.tree
+        maxChild = curNode.children[0]
 
-        # should last one second
-        for i in range(10):
-            self.monte_carlo()
+        for child in curNode.children:
+            if child.playouts > maxChild.playouts:
+                maxChild = child
 
-        self.tree = root
+        next_pos = maxChild.state[1]
 
-        # return max ucb child of node with state
+        wallsNow = self.tree.state[0][next_pos[0]][next_pos[1]]
+        wallsFuture = maxChild.state[0][next_pos[0]][next_pos[1]]
 
-    # find node with specific state
-    def find_node(self, state):
-        cur_node = self.tree
-        while len(cur_node.children) != 0:
-            for node in cur_node.children:
-                if node.state == state:
-                    return node
-        return None
+        #find the altered index for 2 arrays
+        dir = [i for i, (x, y) in enumerate(zip(wallsNow, wallsFuture)) if x != y][0]
+
+        #discard all nodes that are maxChild's nodes because all the next moves will be children of maxChild
+        self.tree = maxChild
+
+        return next_pos,dir
 
     # generate a child based on the leaf node that doesn't exist in the tree
-    def generate_child(self, leaf):
-        r_agent= random_agent.RandomAgent.__init__()
-        next_pos, dir = r_agent.step(leaf.state[0], leaf.state[1], leaf.state[2], self.max_moves)
-        pass
+    def generate_child(self, leaf: Node):
+        #temporary
+        return self.random_child(leaf)
+
+
+    #fixxx
+    #generate a child that doesn't cause a suicide
+    def random_child(self, leaf:Node):
+        # Moves (Up, Right, Down, Left)
+
+        max_step = self.max_moves
+        chess_board, my_pos, adv_pos = leaf.state
+
+        ori_pos = deepcopy(my_pos)
+        moves = ((-1, 0), (0, 1), (1, 0), (0, -1))
+        steps = np.random.randint(0, max_step + 1)
+
+        # Random Walk
+        print("random walk")
+        for _ in range(steps):
+            r, c = my_pos
+            dir = np.random.randint(0, 4)
+            m_r, m_c = moves[dir]
+            my_pos = (r + m_r, c + m_c)
+
+            # Special Case enclosed by Adversary
+            k = 0
+            while my_pos[0] < 0 or my_pos[1] < 0 or chess_board[r, c, dir] or my_pos == adv_pos or all(item is True for item in chess_board[r][c]):
+                k += 1
+                if k > 300:
+                    print(k,chess_board, my_pos, adv_pos,dir,r,c)
+                    break
+                dir = np.random.randint(0, 4)
+                m_r, m_c = moves[dir]
+                my_pos = (r + m_r, c + m_c)
+
+            if k > 300:
+                my_pos = ori_pos
+                break
+
+        # Put Barrier
+        dir = np.random.randint(0, 4)
+        r, c = my_pos
+
+        while chess_board[r,c,dir]:
+            dir = np.random.randint(0, 4)
+
+        print("deepcopy")
+
+        leafCopy = Node(deepcopy(leaf.state), leaf)
+        leafCopy.state[1] = (r,c)
+        leafCopy.state[0][r][c][dir] = True
+
+        print("return")
+
+        return leafCopy
+
 
 
 
@@ -134,6 +210,10 @@ class StudentAgent(Agent):
             "l": 3,
         }
 
+        self.monte_carlo = None
+
+        print("Student Agent class initialized")
+
     def step(self, chess_board, my_pos, adv_pos, max_step):
         """
         Implement the step function of your agent here.
@@ -150,4 +230,10 @@ class StudentAgent(Agent):
         Please check the sample implementation in agents/random_agent.py or agents/human_agent.py for more details.
         """
         # dummy return
-        return my_pos, self.dir_map["u"]
+
+        if self.monte_carlo is None:
+            self.monte_carlo = Monte_Carlo((chess_board,my_pos,adv_pos), len(chess_board), max_moves=max_step)
+
+        return self.monte_carlo.actions()
+        #return my_pos, self.dir_map["u"]
+
