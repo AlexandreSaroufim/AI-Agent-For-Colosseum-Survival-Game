@@ -99,6 +99,69 @@ class Monte_Carlo:
     def simulate(self, child):
         return random.choice([True, False])
 
+    @staticmethod
+    def check_endgame(state):
+
+        """
+                       Check if the game ends and compute the current score of the agents.
+
+                       Returns
+                       -------
+                       is_endgame : bool
+                           Whether the game ends.
+                       outcome : int
+                        Whether we win or enemy or tie
+                       """
+
+        chess_board, my_pos, enemy_pos = state
+        moves = ((-1, 0), (0, 1), (1, 0), (0, -1))
+        board_size = chess_board.shape[0]
+
+        # Union-Find
+        father = dict()
+        for r in range(board_size):
+            for c in range(board_size):
+                father[(r, c)] = (r, c)
+
+        def find(pos):
+            if father[pos] != pos:
+                father[pos] = find(father[pos])
+            return father[pos]
+
+        def union(pos1, pos2):
+            father[pos1] = pos2
+
+        for r in range(board_size):
+            for c in range(board_size):
+                for dir, move in enumerate(
+                        moves[1:3]
+                ):  # Only check down and right
+                    if chess_board[r, c, dir + 1]:
+                        continue
+                    pos_a = find((r, c))
+                    pos_b = find((r + move[0], c + move[1]))
+                    if pos_a != pos_b:
+                        union(pos_a, pos_b)
+
+        for r in range(board_size):
+            for c in range(board_size):
+                find((r, c))
+        p0_r = find(my_pos)
+        p1_r = find(enemy_pos)
+        p0_score = list(father.values()).count(p0_r)
+        p1_score = list(father.values()).count(p1_r)
+        if p0_r == p1_r:
+            return False, -1
+        player_win = None
+        win_blocks = -1
+        if p0_score > p1_score:
+            return True, 0
+        elif p0_score < p1_score:
+            return True, 1
+        else:
+            player_win = -1  # Tie
+            return True, 2
+
     # Use result of the simulation to update all the search tree nodes going up to the root
     def back_propagate(self, result, child: Node):
 
@@ -113,9 +176,9 @@ class Monte_Carlo:
             curNode = curNode.parent
 
 
-    def actions(self,state):
+    def actions(self, state):
 
-        #if state is anchild of root, run monte-carlo on that child as the new root
+        # if state is anchild of root, run monte-carlo on that child as the new root
         foundChild = False
         for child in self.tree.children:
             if child.state == state:
@@ -125,7 +188,7 @@ class Monte_Carlo:
                 break
 
         if not foundChild:
-            self.tree = Node(state,None)
+            self.tree = Node(state, None)
 
         #run monte-carlo for 1.5 seconds
         for i in range(20):
@@ -286,5 +349,5 @@ class StudentAgent(Agent):
         if self.monte_carlo is None:
             self.monte_carlo = Monte_Carlo((chess_board, my_pos, adv_pos), len(chess_board), max_moves=max_step)
 
-        return self.monte_carlo.actions((chess_board,my_pos,adv_pos))
+        return self.monte_carlo.actions((chess_board, my_pos, adv_pos))
         # return my_pos, self.dir_map["u"]
