@@ -12,13 +12,18 @@ import random
 class Node:
     def __init__(self, state, parent):
         #self.state: list[list[list], tuple[int, int], tuple[int, int]] = state
-        self.state = state
+        self.state = list(state)
         self.wins = 0
         self.wins = 0
         self.playouts = 0
         self.ucb = 0
         self.parent = parent
         self.children: list[Node] = []
+
+        if parent is None:
+            self.isMaxPlayer = True
+        else:
+            self.isMaxPlayer = not parent.isMaxPlayer
 
     def add_child(self, obj):
         self.children.append(obj)
@@ -42,8 +47,12 @@ class Monte_Carlo:
         self.length = length
         self.max_moves = max_moves
 
+        #Temporary
+        self.found = 0
+        self.played = 0
+
         # limit to 28 seconds
-        for i in range(100):
+        for i in range(10):
             self.monte_carlo()
             print("init: " + str(i))
 
@@ -77,36 +86,32 @@ class Monte_Carlo:
     # we can also generate several children
     def expand(self, leaf):
         # child based on leaf
-        child = self.generate_child(leaf)
-        child2 = self.generate_child(leaf)
-        child3 = self.generate_child(leaf)
 
-        leaf.add_child(child)
-        leaf.add_child(child2)
-        leaf.add_child(child3)
-
+        child = None
+        for i in range(30):
+            child = self.generate_child(leaf)
+            leaf.add_child(child)
+        
         return child
 
     # simulate a game using child as state
     # use random_agent using child.state
     def simulate(self, child):
-        random.choice([True, False])
+        return random.choice([True, False])
 
     # Use result of the simulation to update all the search tree nodes going up to the root
     def back_propagate(self, result, child: Node):
 
-        child.playouts += 1
-
         # if result is true then we won, if false we didn't win
-        if result:
-            child.wins += 1
 
-        child.update_ucb(self.tree)
+        curNode = child
+        while curNode != None:
+            curNode.playouts += 1
+            if result:
+                curNode.wins += 1
+            curNode.update_ucb(self.tree)
+            curNode = curNode.parent
 
-        if child.parent is None:
-            return
-
-        self.back_propagate(result, child.parent)
 
     def actions(self,state):
 
@@ -116,22 +121,29 @@ class Monte_Carlo:
             if child.state == state:
                 self.tree = child
                 foundChild = True
+                self.found+=1
                 break
 
         if not foundChild:
             self.tree = Node(state,None)
 
         #run monte-carlo for 1.5 seconds
-        for i in range(10):
+        for i in range(20):
             self.monte_carlo()
 
+        self.played+=1
 
-
+        print("Found ratio: ", self.found, self.played)
         curNode: Node = self.tree
         maxChild = curNode.children[0]
 
         for child in curNode.children:
-            if child.playouts > maxChild.playouts:
+            x,y = child.state[1]
+            childWalls = child.state[0][x][y]
+
+            #temp
+            #child.playouts > maxChild.playouts use this when simulate implemented
+            if list(childWalls).count(True) < 2 and x != self.length-1 and x != 0 and y != self.length-1 and y != 0:
                 maxChild = child
 
         next_pos = maxChild.state[1]
@@ -147,23 +159,43 @@ class Monte_Carlo:
 
         self.tree.parent = None
 
+        print("Distance to enemy: ", self.distance2points(next_pos,state[2]), "Max steps: ", self.max_moves)
+
         return next_pos, dir
 
     # generate a child based on the leaf node that doesn't exist in the tree
     def generate_child(self, leaf: Node):
         # temporary
-        return self.random_child(leaf)
+        return self.random_child(leaf, leaf.isMaxPlayer)
 
-    # fixxx
-    # generate a child that doesn't cause a suicide
-    #
-    def random_child(self, leaf: Node):
+
+    def distance2points(self,my_pos,adv_pos):
+
+        distance = math.ceil(math.sqrt((my_pos[0] - adv_pos[0]) ** 2 + (my_pos[1] - adv_pos[1]) ** 2))
+
+        return distance
+
+
+    def printTree(self):
+        #use bfs to print tree
+        pass
+
+            
+
+
+    # ifMaxPlayer random my_pos, if not randomize adv_pos
+    def random_child(self, leaf: Node, isMaxPlayer):
         # Moves (Up, Right, Down, Left)
 
         max_step = self.max_moves
-        chess_board, my_pos, adv_pos = leaf.state
+        chess_board, my_pos, adv_pos = deepcopy(leaf.state)
+        ori_pos = None
 
-        ori_pos = deepcopy(my_pos)
+        if isMaxPlayer:
+            ori_pos = deepcopy(my_pos)
+        else:
+            ori_pos = deepcopy(adv_pos)
+
         moves = ((-1, 0), (0, 1), (1, 0), (0, -1))
         steps = np.random.randint(0, max_step + 1)
 
@@ -180,19 +212,11 @@ class Monte_Carlo:
             while chess_board[r, c, dir] or my_pos == adv_pos:
                 k += 1
                 if k > 300:
-                    print(k, chess_board, my_pos, adv_pos, dir, r, c)
                     break
                 dir = np.random.randint(0, 4)
                 m_r, m_c = moves[dir]
                 my_pos = (r + m_r, c + m_c)
-                #x, y = my_pos
-                #while chess_board[x, y, 0] and chess_board[x, y, 1] and chess_board[x, y, 2] and chess_board[x, y, 3]:
-                #    dir = np.random.randint(0, 4)
-                #    m_r, m_c = moves[dir]
-                #    my_pos = (r + m_r, c + m_c)
-                #    x, y = my_pos
-                #    print("problem")
-
+                
             if k > 300:
                 my_pos = ori_pos
                 break
@@ -208,17 +232,14 @@ class Monte_Carlo:
             counter += 1
             if counter > 10:
                 break
-            # print("in while chess_board")
-            # print(r, " ", c, " ", dir)
-            # print(chess_board)
 
-        print("deepcopy")
+        leafCopy = Node([chess_board, my_pos, adv_pos], leaf)
 
-        leafCopy = Node(deepcopy(leaf.state), leaf)
-        leafCopy.state[1] = (r, c)
+        if isMaxPlayer:
+            leafCopy.state[1] = (r, c)
+        else:
+            leafCopy.state[2] = (r, c)
         leafCopy.state[0][r, c, dir] = True
-
-        print("return")
 
         return leafCopy
 
