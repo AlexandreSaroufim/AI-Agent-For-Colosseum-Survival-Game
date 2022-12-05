@@ -90,7 +90,7 @@ class Monte_Carlo:
         # child based on leaf
 
         child = None
-        for i in range(30):
+        for i in range(40):
             child = self.generate_child(leaf)
             leaf.add_child(child)
 
@@ -178,6 +178,26 @@ class Monte_Carlo:
             curNode = curNode.parent
 
 
+    #child with least num of walls
+    @staticmethod
+    def minChildWalls(parent: Node):
+
+        minChild = None
+        minChildNumWalls = 5
+
+        for child in parent.children:
+            x, y = child.state[1]
+            childWalls = child.state[0][x][y]
+
+            if minChild is None or list(childWalls).count(True) < minChildNumWalls:
+                minChild = child
+                minChildNumWalls = childWalls
+
+        return minChild
+
+
+
+
     def actions(self, state):
 
 
@@ -212,9 +232,16 @@ class Monte_Carlo:
             self.goodMovesfound += 1
 
         next_pos = maxChild.state[1]
-
         wallsNow = self.tree.state[0][next_pos[0]][next_pos[1]]
         wallsFuture = maxChild.state[0][next_pos[0]][next_pos[1]]
+
+        if list(wallsFuture).count(True) == 4:
+            #get child with least num of walls
+            maxChild = self.minChildWalls(self.tree)
+
+            next_pos = maxChild.state[1]
+            wallsFuture = maxChild.state[0][next_pos[0]][next_pos[1]]
+            print("suicidal move prevented")
 
         # find the altered index for 2 arrays
         dir = [i for i, (x, y) in enumerate(zip(wallsNow, wallsFuture)) if x != y][0]
@@ -223,6 +250,7 @@ class Monte_Carlo:
         self.tree = maxChild
 
         self.tree.parent = None
+
 
         print("Num good-moves found =", self.goodMovesfound, "Distance to enemy: ", self.distance2points(next_pos,state[2]), "Max steps: ", self.max_moves)
 
