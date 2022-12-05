@@ -184,12 +184,17 @@ class Monte_Carlo:
         minChild = None
         minChildNumWalls = 5
 
+        maxFutureDistance = 0
+
         for child in parent.children:
             x, y = child.state[1]
             childWalls = child.state[0][x][y]
             numChildWalls = list(childWalls).count(True)
 
-            if minChild is None or numChildWalls < minChildNumWalls:
+            #Distance between cur position and child position
+            curPosDistance = Monte_Carlo.distance2points(parent.state[1], child.state[1])
+
+            if minChild is None or numChildWalls < minChildNumWalls and curPosDistance > maxFutureDistance:
                 minChild = child
                 minChildNumWalls = numChildWalls
 
@@ -233,8 +238,9 @@ class Monte_Carlo:
         next_pos = maxChild.state[1]
         wallsFuture = maxChild.state[0][next_pos[0]][next_pos[1]]
 
+
         #If the move is suicidal, find another move where we result in the least enclosed square
-        if list(wallsFuture).count(True) == 4:
+        if list(wallsFuture).count(True) == 4 or self.check_endgame(maxChild.state)[1] == 1:
             # get child with least num of walls
             maxChild = Monte_Carlo.minChildWalls(parent)
             print("suicidal move prevented")
@@ -253,7 +259,7 @@ class Monte_Carlo:
         while time.time() < t_end:
             self.monte_carlo()
 
-        #We can alter the child picking stategy
+        #We can alter the bestChild picking stategy
         bestChild = self.chooseChildToCornerEnemy(self.tree)
         next_pos = bestChild.state[1]
         wallsNow = self.tree.state[0][next_pos[0]][next_pos[1]]
