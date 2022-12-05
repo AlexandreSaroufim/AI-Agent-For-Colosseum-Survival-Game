@@ -7,7 +7,7 @@ import math
 from copy import deepcopy
 import numpy as np
 import random
-import time
+from  time import time
 
 
 class Node:
@@ -53,9 +53,10 @@ class Monte_Carlo:
         self.goodMovesfound = 0
 
         # limit to 28 seconds
-        for i in range(10):
+        start_time = time()
+        while time() - start_time < 27:
             self.monte_carlo()
-            print("init: " + str(i))
+
 
     def monte_carlo(self):
 
@@ -274,8 +275,8 @@ class Monte_Carlo:
             self.found+=1
 
         #run monte-carlo for 1.5 seconds
-        t_end = time.time() + 1.7
-        while time.time() < t_end:
+        t_end = time() + 1.7
+        while time() < t_end:
             self.monte_carlo()
 
         #We can alter the child picking stategy
