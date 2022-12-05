@@ -7,7 +7,7 @@ import math
 from copy import deepcopy
 import numpy as np
 import random
-import time
+from time import sleep, time
 
 
 class Node:
@@ -47,15 +47,18 @@ class Monte_Carlo:
         self.length = length
         self.max_moves = max_moves
 
-        #Temporary
+        # Temporary
         self.found = 0
         self.played = 0
         self.goodMovesfound = 0
 
         # limit to 28 seconds
-        for i in range(10):
+        start_time = time()
+        i = 0
+        while time() - start_time < 27:
             self.monte_carlo()
             print("init: " + str(i))
+            i += 1
 
     def monte_carlo(self):
 
@@ -76,7 +79,8 @@ class Monte_Carlo:
         print("\n num_children", len(cur_node.children))
         while len(cur_node.children) != 0:
             for node in cur_node.children:
-                if node.playouts == 0 or max_child_ucb is None or (node.ucb > max_child_ucb.ucb and max_child_ucb.playouts != 0):
+                if node.playouts == 0 or max_child_ucb is None or (
+                        node.ucb > max_child_ucb.ucb and max_child_ucb.playouts != 0):
                     max_child_ucb = node
             cur_node = max_child_ucb
             max_child_ucb = None
@@ -89,7 +93,7 @@ class Monte_Carlo:
         # child based on leaf
 
         child = None
-        for i in range(3):
+        for i in range(20):
             child = self.generate_child(leaf)
             leaf.add_child(child)
 
@@ -107,6 +111,7 @@ class Monte_Carlo:
         False if he wins
         use random step until someone wins
         """
+
         temp_node = deepcopy(child)
 
         while True:
@@ -201,8 +206,7 @@ class Monte_Carlo:
             curNode.update_ucb(self.tree)
             curNode = curNode.parent
 
-
-    #child with least num of walls
+    # child with least num of walls
     @classmethod
     def minChildWalls(cls, parent: Node):
 
@@ -220,23 +224,22 @@ class Monte_Carlo:
 
         return minChild
 
-
-    #To be used with Monte-Carlo
-    #Chooses child with maximum playouts -> most potential
+    # To be used with Monte-Carlo
+    # Chooses child with maximum playouts -> most potential
     @staticmethod
     def chooseChildWithMaxPlayouts(parent: Node):
 
         maxPlayoutChild: Node = None
 
         for child in parent.children:
-            if maxPlayoutChild is None or maxPlayoutChild.wins < child.wins:
+            if maxPlayoutChild is None or maxPlayoutChild.playouts < child.playouts:
                 maxPlayoutChild = child
 
         return maxPlayoutChild
 
-    #Chooses child closest to enemy
-    #Chooses child that results in us not being enclosed by 4 or 3 walls
-    #If no child satisfies requirement, pick child with least number of enclosed walls
+    # Chooses child closest to enemy
+    # Chooses child that results in us not being enclosed by 4 or 3 walls
+    # If no child satisfies requirement, pick child with least number of enclosed walls
     def chooseChildToCornerEnemy(self, parent: Node):
 
         curNode: Node = parent
@@ -258,7 +261,7 @@ class Monte_Carlo:
         next_pos = maxChild.state[1]
         wallsFuture = maxChild.state[0][next_pos[0]][next_pos[1]]
 
-        #If the move is suicidal, find another move where we result in the least enclosed square
+        # If the move is suicidal, find another move where we result in the least enclosed square
         if list(wallsFuture).count(True) == 4:
             # get child with least num of walls
             maxChild = Monte_Carlo.minChildWalls(parent)
@@ -266,19 +269,19 @@ class Monte_Carlo:
 
         return maxChild
 
-
     def actions(self, state):
 
-        if not np.array_equal(self.tree.state[0], state[0]) or self.tree.state[1] != state[1] or self.tree.state[2] != state[2]:
+        if not np.array_equal(self.tree.state[0], state[0]) or self.tree.state[1] != state[1] or self.tree.state[2] != \
+                state[2]:
             self.tree = Node(state, None)
-            self.found+=1
+            self.found += 1
 
-        #run monte-carlo for 1.5 seconds
-        t_end = time.time() + 1.7
-        while time.time() < t_end:
+        # run monte-carlo for 1.5 seconds
+        t_end = time() + 1.7
+        while time() < t_end:
             self.monte_carlo()
 
-        #We can alter the child picking stategy
+        # We can alter the child picking stategy
         bestChild = self.chooseChildWithMaxPlayouts(self.tree)
         next_pos = bestChild.state[1]
         wallsNow = self.tree.state[0][next_pos[0]][next_pos[1]]
@@ -291,7 +294,8 @@ class Monte_Carlo:
         self.tree = bestChild
         self.tree.parent = None
 
-        print("Num good-moves found =", self.goodMovesfound, "Distance to enemy: ", self.distance2points(next_pos,state[2]), "Max steps: ", self.max_moves)
+        print("Num good-moves found =", self.goodMovesfound, "Distance to enemy: ",
+              self.distance2points(next_pos, state[2]), "Max steps: ", self.max_moves)
 
         return next_pos, dir
 
@@ -308,7 +312,7 @@ class Monte_Carlo:
         return distance
 
     @staticmethod
-    def direction(my_pos,adv_pos):
+    def direction(my_pos, adv_pos):
 
         verticalDiff = adv_pos[0] - my_pos[0]
         horizontalDiff = adv_pos[1] - my_pos[1]
@@ -326,15 +330,47 @@ class Monte_Carlo:
             else:
                 return 3
 
+    @staticmethod
+    def direction2(my_pos, adv_pos, board_length):
 
+        verticalDiff = board_length / 2 - my_pos[0]
+        horizontalDiff = board_length / 2 - my_pos[1]
 
+        if abs(verticalDiff) > abs(horizontalDiff):
+            if verticalDiff > 0:
+                return 2
+            else:
+                return 0
+
+        else:
+
+            if horizontalDiff > 0:
+                return 1
+            else:
+                return 3
+
+    @staticmethod
+    def whereto(my_pos, adv_pos, board_length):
+
+        verticalDiff = board_length / 2 - my_pos[0]
+        horizontalDiff = board_length / 2 - my_pos[1]
+
+        if abs(verticalDiff) > abs(horizontalDiff):
+            if verticalDiff > 0:
+                return 0
+            else:
+                return 2
+
+        else:
+
+            if horizontalDiff > 0:
+                return 3
+            else:
+                return 1
 
     def printTree(self):
-        #use bfs to print tree
+        # use bfs to print tree
         pass
-
-
-
 
     # ifMaxPlayer random my_pos, if not randomize adv_pos
     def random_child(self, leaf: Node, isMaxPlayer):
@@ -355,10 +391,11 @@ class Monte_Carlo:
         steps = np.random.randint(0, max_step + 1)
 
         # Random Walk
-        #print("random walk")
+        # print("random walk")
         for _ in range(steps):
             r, c = my_pos
             dir = np.random.randint(0, 4)
+            dir = self.whereto(my_pos, adv_pos, len(chess_board))
             m_r, m_c = moves[dir]
             my_pos = (r + m_r, c + m_c)
 
@@ -377,7 +414,8 @@ class Monte_Carlo:
                 break
 
         # Put Barrier
-        dir = self.direction(my_pos, adv_pos)
+        dir = self.direction2(my_pos, adv_pos, len(chess_board))
+        #        dir = np.random.randint(0, 4)
         r, c = my_pos
 
         # temporary solution
@@ -388,12 +426,14 @@ class Monte_Carlo:
             if counter > 10:
                 break
 
-        leafCopy = Node([chess_board, my_pos, adv_pos], leaf)
+        leafCopy =Node([chess_board, my_pos, adv_pos], leaf)
 
         if isMaxPlayer:
-            leafCopy.state[1] = (r, c)
+            leafCopy.state[1] = my_pos
+            leafCopy.state[2] = adv_pos
         else:
-            leafCopy.state[2] = (r, c)
+            leafCopy.state[1] = adv_pos
+            leafCopy.state[2] = my_pos
         leafCopy.state[0][r, c, dir] = True
 
         return leafCopy
