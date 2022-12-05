@@ -98,7 +98,32 @@ class Monte_Carlo:
     # simulate a game using child as state
     # use random_agent using child.state
     def simulate(self, child):
-        return random.choice([True, False])
+        """
+        Take my pos
+        Enemy pos
+        Simulate a game
+        See who wins
+        return True if I win
+        False if he wins
+        use random step until someone wins
+        """
+        temp_node = deepcopy(child)
+
+        while True:
+            chess_board, my_pos, enemy_pos = temp_node.state
+            print("My pos ", my_pos)
+            print("Enemy pos ", enemy_pos)
+            print("isMaxPLayer: ", temp_node.isMaxPlayer)
+            isDone, output = self.check_endgame(temp_node.state)
+            if my_pos == enemy_pos:
+                return False
+            if not isDone:
+                temp_node = self.random_child(temp_node, temp_node.isMaxPlayer)
+            else:
+                break
+        if output == 0:
+            return True
+        return False
 
     @staticmethod
     def check_endgame(state):
@@ -330,7 +355,7 @@ class Monte_Carlo:
         steps = np.random.randint(0, max_step + 1)
 
         # Random Walk
-        print("random walk")
+        #print("random walk")
         for _ in range(steps):
             r, c = my_pos
             dir = np.random.randint(0, 4)
