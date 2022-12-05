@@ -89,7 +89,7 @@ class Monte_Carlo:
         # child based on leaf
 
         child = None
-        for i in range(3):
+        for i in range(6):
             child = self.generate_child(leaf)
             leaf.add_child(child)
 
@@ -229,7 +229,7 @@ class Monte_Carlo:
         maxPlayoutChild: Node = None
 
         for child in parent.children:
-            if maxPlayoutChild is None or maxPlayoutChild.wins < child.wins:
+            if maxPlayoutChild is None or maxPlayoutChild.playouts < child.playouts:
                 maxPlayoutChild = child
 
         return maxPlayoutChild
@@ -391,9 +391,11 @@ class Monte_Carlo:
         leafCopy = Node([chess_board, my_pos, adv_pos], leaf)
 
         if isMaxPlayer:
-            leafCopy.state[1] = (r, c)
+            leafCopy.state[1] = my_pos
+            leafCopy.state[2] = adv_pos
         else:
-            leafCopy.state[2] = (r, c)
+            leafCopy.state[1] = adv_pos
+            leafCopy.state[2] = my_pos
         leafCopy.state[0][r, c, dir] = True
 
         return leafCopy
