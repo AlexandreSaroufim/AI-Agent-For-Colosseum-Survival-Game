@@ -89,7 +89,7 @@ class Monte_Carlo:
         # child based on leaf
 
         child = None
-        for i in range(40):
+        for i in range(3):
             child = self.generate_child(leaf)
             leaf.add_child(child)
 
@@ -229,7 +229,7 @@ class Monte_Carlo:
         maxPlayoutChild: Node = None
 
         for child in parent.children:
-            if maxPlayoutChild is None or maxPlayoutChild.playouts < child.playouts:
+            if maxPlayoutChild is None or maxPlayoutChild.wins < child.wins:
                 maxPlayoutChild = child
 
         return maxPlayoutChild
@@ -274,12 +274,12 @@ class Monte_Carlo:
             self.found+=1
 
         #run monte-carlo for 1.5 seconds
-        t_end = time.time() + 0.1
+        t_end = time.time() + 1.7
         while time.time() < t_end:
             self.monte_carlo()
 
         #We can alter the child picking stategy
-        bestChild = self.chooseChildToCornerEnemy(self.tree)
+        bestChild = self.chooseChildWithMaxPlayouts(self.tree)
         next_pos = bestChild.state[1]
         wallsNow = self.tree.state[0][next_pos[0]][next_pos[1]]
         wallsFuture = bestChild.state[0][next_pos[0]][next_pos[1]]
