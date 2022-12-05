@@ -235,6 +235,10 @@ class Monte_Carlo:
                 maxChild = child
                 maxDis = distanceToEnemy
 
+            #This mean that this child will guarantee us a win
+            if self.check_endgame(child.state)[1] == 0:
+                return child
+
         next_pos = maxChild.state[1]
         wallsFuture = maxChild.state[0][next_pos[0]][next_pos[1]]
 
