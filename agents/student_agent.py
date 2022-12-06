@@ -131,8 +131,6 @@ class Game:
                 if is_endgame and output == 0:
                     return True
 
-            #print(self.nodeSim.state[1], self.nodeSim.state[2])
-
             if not self.myTurn:
                 fut_pos, dir = self.gameStep(self.chessBoard, self.nodeSim.state[2], self.nodeSim.state[1],
                                              self.maxMoves)
@@ -145,13 +143,11 @@ class Game:
                 if is_endgame and (output == 1 or output == 2):
                     return False
 
-            #print(self.nodeSim.state[1], self.nodeSim.state[2])
 
 
 
     def gameStep(self, chess_board, my_pos, adv_pos, max_step):
 
-        #print("Game step")
         # Moves (Up, Right, Down, Left)
         ori_pos = deepcopy(my_pos)
         moves = ((-1, 0), (0, 1), (1, 0), (0, -1))
@@ -197,11 +193,6 @@ class Monte_Carlo:
         self.length = length
         self.max_moves = max_moves
 
-        #Temporary
-        self.found = 0
-        self.played = 0
-        self.goodMovesfound = 0
-
         # limit to 28 seconds
         t_end = time.time() + 5
         while time.time() < t_end:
@@ -211,8 +202,10 @@ class Monte_Carlo:
 
         leaf = self.select()
         child = self.expand(leaf)
-        result = self.simulate(child)
-        self.back_propagate(result, child)
+
+        if not child is None:
+            result = self.simulate(child)
+            self.back_propagate(result, child)
 
     # Traverse Tree using children with highest UCB
     def select(self):
@@ -232,14 +225,36 @@ class Monte_Carlo:
     # Grow search tree by generating a new child of the selected leaf node
     # we can also generate several children
     def expand(self, leaf):
-        # child based on leaf
 
-        child = None
+        chessboardLeaf = leaf.state[0]
+        x,y = leaf.state[1]
+
+        #Don't waste time expanding a suicidal leaf
+        if Game.check_endgame(leaf.state) == 1:
+            leaf.playouts+=1
+            leaf.update_ucb(self.tree)
+            return None
+
+        randomChildren = []
         for i in range(self.max_moves * 2):
-            child = self.generate_child(leaf)
-            leaf.add_child(child)
+            randomChildren.append(self.generate_child(leaf))
 
-        return child
+        leaf.children = randomChildren
+        # aggressiveChildren = []
+        # futCurMovs = []
+        # for i in range(self.max_moves * 2):
+        #     aggChild = self.chooseChildToCornerEnemy(leaf)
+        #     if aggChild is not None:
+        #         aggressiveChildren.append(aggChild)
+        #         futCurMovs.append(aggChild.state[1])
+        #         leaf.children.remove(aggChild)
+        #
+        # leaf.children = aggressiveChildren
+        #
+        # print("Expanded from ", leaf.state[1], " to future curPos moves: ", futCurMovs)
+        # x,y = leaf.state[1]
+        # print("curPos walls: ", leaf.state[0][x][y])
+        return leaf.children[0] if len(leaf.children) != 0 else None
 
     # simulate a game using child as state
     # use random_agent using child.state
@@ -273,105 +288,46 @@ class Monte_Carlo:
             curNode = curNode.parent
 
 
-    #child with least num of walls
-    @classmethod
-    def minChildWalls(cls, parent: Node):
+    #To be used with Monte-Carlo
+    #Chooses child with maximum playouts -> most potential
+    def chooseChildWithMaxPlayouts(self, parent: Node):
 
-        minChild = None
-        minChildNumWalls = 5
+        maxPlayoutChild: Node = None
 
         for child in parent.children:
             x, y = child.state[1]
             childWalls = child.state[0][x][y]
             numChildWalls = list(childWalls).count(True)
 
-            if minChild is None or numChildWalls < minChildNumWalls:
-                minChild = child
-                minChildNumWalls = numChildWalls
+            is_end_game, result = Game.check_endgame(child.state)
 
-        return minChild
+            #if next move will guarantee us victory return child
+            if result == 0:
+                return child
 
-
-    #To be used with Monte-Carlo
-    #Chooses child with maximum playouts -> most potential
-
-    def chooseChildWithMaxPlayouts(self, parent: Node):
-
-        maxPlayoutChild: Node = None
-
-        for child in parent.children:
-            if maxPlayoutChild is None or maxPlayoutChild.playouts < child.playouts:
+            # Chooses the maxPlayout child that isn't a suicidal move
+            if maxPlayoutChild is None or maxPlayoutChild.playouts < child.playouts and numChildWalls < 4 and result != 1:
                 maxPlayoutChild = child
 
-
-        game_ended, result = Game.check_endgame(maxPlayoutChild.state)
-
-        print("new curPos =", maxPlayoutChild.state[1], " game_ended: ", game_ended, " who won: ", result ,"\n")
-
-        if result == 1:
-            for i in range(30):
-                print("Simulation number: ", i)
-                arr = []
-                for i in range(10):
-                    gameObj = Game(Node(maxPlayoutChild.state, None), self.max_moves)
-                    arr.append(gameObj.play())
-                print("We won ", arr.count(True), " times")
-            print("suicidal node")
-
-
         return maxPlayoutChild
-
-    #Chooses child closest to enemy
-    #Chooses child that results in us not being enclosed by 4 or 3 walls
-    #If no child satisfies requirement, pick child with least number of enclosed walls
-    def chooseChildToCornerEnemy(self, parent: Node):
-
-        curNode: Node = parent
-        boardSize = len(parent.state[0])
-        maxChild = curNode.children[0]
-        maxDis = 999
-
-        for child in curNode.children:
-            x, y = child.state[1]
-            childWalls = child.state[0][x][y]
-            distanceToEnemy = Monte_Carlo.distance2points(child.state[1], child.state[2])
-
-            # selects child with future pos where there's 1 wall or less and doesn't select square on the edge and far from adversary
-            if list(childWalls).count(
-                    True) <= 2 and boardSize - 2 > x > 1 and 1 < y < boardSize - 2 and distanceToEnemy < maxDis:
-                maxChild = child
-                maxDis = distanceToEnemy
-
-        next_pos = maxChild.state[1]
-        wallsFuture = maxChild.state[0][next_pos[0]][next_pos[1]]
-
-        #If the move is suicidal, find another move where we result in the least enclosed square
-        if list(wallsFuture).count(True) == 4:
-            # get child with least num of walls
-            maxChild = Monte_Carlo.minChildWalls(parent)
-            print("suicidal move prevented")
-
-        return maxChild
-
 
     def actions(self, state):
 
         if not np.array_equal(self.tree.state[0], state[0]) or self.tree.state[1] != state[1] or self.tree.state[2] != state[2]:
             self.tree = Node(state, None)
-            self.found+=1
 
         #run monte-carlo for 1.5 seconds
-        t_end = time.time() + 1.7
+        t_end = time.time() + 1.8
         while time.time() < t_end:
             self.monte_carlo()
 
         #We can alter the child picking stategy
         bestChild = self.chooseChildWithMaxPlayouts(self.tree)
+
+        #Get next pos and next dir
         next_pos = bestChild.state[1]
         wallsNow = self.tree.state[0][next_pos[0]][next_pos[1]]
         wallsFuture = bestChild.state[0][next_pos[0]][next_pos[1]]
-
-        # find the altered index for 2 arrays
         dir = [i for i, (x, y) in enumerate(zip(wallsNow, wallsFuture)) if x != y][0]
 
         # discard all nodes that are maxChild's nodes because all the next moves will be children of maxChild
@@ -437,9 +393,73 @@ class Monte_Carlo:
 
             # Special Case enclosed by Adversary
             k = 0
-            while chess_board[r, c, dir] or my_pos == adv_pos:
+            while chess_board[r][c][dir] or my_pos == adv_pos:
                 k += 1
                 if k > 300:
+                    break
+                dir = np.random.randint(0, 4)
+                m_r, m_c = moves[dir]
+                my_pos = (r + m_r, c + m_c)
+
+            if k > 300:
+                my_pos = ori_pos
+                break
+
+        # Put Barrier in direction of adversary
+        dir = self.direction(my_pos,adv_pos)
+        #dir = np.random.randint(0, 4)
+        r, c = my_pos
+
+        # temporary solution
+        counter = 0
+        while chess_board[r][c][dir]:
+            dir = np.random.randint(0, 4)
+            counter += 1
+            if counter > 10:
+                break
+
+        if isMaxPlayer:
+            leafCopy = Node(deepcopy([chess_board, my_pos, adv_pos]), leaf)
+        else:
+            leafCopy = Node(deepcopy([chess_board, adv_pos, my_pos]), leaf)
+        leafCopy.state[0][r, c, dir] = True
+
+        return leafCopy
+
+        # ifMaxPlayer random my_pos, if not randomize adv_pos
+
+    def superior_child(self, leaf: Node, isMaxPlayer):
+        # Moves (Up, Right, Down, Left)
+
+        max_step = self.max_moves
+        ori_pos = None
+
+        if isMaxPlayer:
+            chess_board, my_pos, adv_pos = deepcopy(leaf.state)
+            ori_pos = deepcopy(my_pos)
+
+        else:
+            chess_board, adv_pos, my_pos = deepcopy(leaf.state)
+            ori_pos = deepcopy(adv_pos)
+
+        moves = ((-1, 0), (0, 1), (1, 0), (0, -1))
+        steps = np.random.randint(0, max_step + 1)
+
+        # Random Walk
+        # print("random walk")
+        for _ in range(steps):
+            r, c = my_pos
+            dir = np.random.randint(0, 4)
+            m_r, m_c = moves[dir]
+            my_pos = (r + m_r, c + m_c)
+
+            #futureWalls = list(chess_board[r][c])
+            # Special Case enclosed by Adversary
+            k = 0
+            while 0 > r > self.length-1 or 0 > c > self.length-1 or chess_board[r, c, dir] or my_pos == adv_pos:
+                k += 1
+                if k > 200:
+                    print("Superior child is random")
                     break
                 dir = np.random.randint(0, 4)
                 m_r, m_c = moves[dir]
@@ -524,5 +544,13 @@ class StudentAgent(Agent):
         #         arr.append(gameObj.play())
         #     print("We won ", arr.count(True), " times")
 
-        return self.monte_carlo.actions((chess_board, my_pos, adv_pos))
+        timeStart = time.time()
+
+        action = self.monte_carlo.actions((chess_board, my_pos, adv_pos))
+
+        timeEnd = time.time()
+
+        print("Elapsed time: ", timeEnd - timeStart)
+
+        return action
         # return my_pos, self.dir_map["u"]
