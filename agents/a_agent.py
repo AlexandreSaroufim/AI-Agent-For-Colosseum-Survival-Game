@@ -245,6 +245,7 @@ class Monte_Carlo:
         #If the move is suicidal, find another move where we result in the least enclosed square
         if list(wallsFuture).count(True) == 4 or self.check_endgame(maxChild.state)[1] == 1:
             # get child with least num of walls,
+            print("Defense !")
             maxChild = Monte_Carlo.minChildWalls(parent)
             #print("suicidal move prevented")
 
