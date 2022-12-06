@@ -1,14 +1,12 @@
 # Student agent: Add your own agent here
-from agents.random_agent import RandomAgent
 from agents.agent import Agent
 from store import register_agent
-import sys
 import math
 from copy import deepcopy
 import numpy as np
-import random
 import time
 
+#Final Monte_Carlo Aggressive
 class Node:
     def __init__(self, state, parent):
         self.state = list(deepcopy(state))
@@ -297,9 +295,9 @@ class Monte_Carlo:
 
     #Returns the next position and next wall direction according to a state
     #Simulates state for 2 seconds
-    def actions(self, state):
+    def actions(self, state, firstRun):
 
-        if not np.array_equal(self.tree.state[0], state[0]) or self.tree.state[1] != state[1] or self.tree.state[2] != state[2]:
+        if not firstRun:
             self.tree = Node(state, None)
 
         #run monte-carlo for 1.5 seconds
@@ -453,6 +451,7 @@ class StudentAgent(Agent):
 
         if self.monte_carlo is None:
             self.monte_carlo = Monte_Carlo((chess_board, my_pos, adv_pos), len(chess_board), max_moves=max_step)
+            return self.monte_carlo.actions((chess_board, my_pos, adv_pos), True)
 
-        action = self.monte_carlo.actions((chess_board, my_pos, adv_pos))
+        action = self.monte_carlo.actions((chess_board, my_pos, adv_pos), False)
         return action
